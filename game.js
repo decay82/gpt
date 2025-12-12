@@ -996,7 +996,8 @@ function updateUI() {
 
 // Game Loop
 function gameLoop(timestamp) {
-    if (game.state !== 'playing') {
+    // Continue animation loop for all states except menu
+    if (game.state === 'menu') {
         requestAnimationFrame(gameLoop);
         return;
     }
@@ -1018,29 +1019,35 @@ function gameLoop(timestamp) {
     const shake = game.screenShake.getOffset();
     game.ctx.translate(shake.x, shake.y);
 
-    // Update
-    game.player.update(deltaTime);
+    // Only update game logic if playing
+    if (game.state === 'playing') {
+        // Update
+        game.player.update(deltaTime);
 
-    game.enemies.forEach(enemy => enemy.update(deltaTime));
+        game.enemies.forEach(enemy => enemy.update(deltaTime));
 
-    game.projectiles = game.projectiles.filter(p => p.update(deltaTime));
+        game.projectiles = game.projectiles.filter(p => p.update(deltaTime));
 
-    game.particles = game.particles.filter(p => p.update(deltaTime));
+        game.particles = game.particles.filter(p => p.update(deltaTime));
 
-    game.effects = game.effects.filter(e => e.update(deltaTime));
+        game.effects = game.effects.filter(e => e.update(deltaTime));
 
-    // Room-based enemy spawning (Hades-style)
-    if (game.enemiesSpawnedInRoom < game.enemiesInRoom) {
-        game.enemySpawnTimer += deltaTime;
-        if (game.enemySpawnTimer > 2000) { // Spawn every 2 seconds
-            spawnEnemy();
-            game.enemiesSpawnedInRoom++;
-            game.enemySpawnTimer = 0;
+        // Room-based enemy spawning (Hades-style)
+        if (game.enemiesSpawnedInRoom < game.enemiesInRoom) {
+            game.enemySpawnTimer += deltaTime;
+            if (game.enemySpawnTimer > 2000) { // Spawn every 2 seconds
+                spawnEnemy();
+                game.enemiesSpawnedInRoom++;
+                game.enemySpawnTimer = 0;
+            }
         }
-    }
 
-    // Check if room is complete
-    checkRoomComplete();
+        // Check if room is complete
+        checkRoomComplete();
+    } else {
+        // Even when not playing, update particles for visual effects
+        game.particles = game.particles.filter(p => p.update(deltaTime));
+    }
 
     // Draw (back to front)
     game.particles.forEach(p => p.draw(game.ctx));

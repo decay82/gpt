@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Survival Arena - Survivors-like Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="menu-screen" class="screen active">
+            <h1>🎮 SURVIVAL ARENA</h1>
+            <p class="subtitle">How long can you survive?</p>
+            <button id="start-btn" class="btn-primary">START GAME</button>
+            <div class="instructions">
+                <h3>How to Play</h3>
+                <p>🎯 Move: Arrow Keys or WASD</p>
+                <p>⚔️ Auto Attack: Weapons fire automatically</p>
+                <p>📈 Level Up: Choose upgrades to survive longer</p>
+                <p>💀 Survive as long as you can!</p>
+            </div>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <canvas id="gameCanvas"></canvas>
+
+            <div id="game-ui">
+                <div class="ui-top">
+                    <div class="stat-bar">
+                        <div class="stat-label">HP</div>
+                        <div class="bar hp-bar">
+                            <div id="hp-fill" class="bar-fill"></div>
+                        </div>
+                        <span id="hp-text">100/100</span>
+                    </div>
+
+                    <div class="stat-bar">
+                        <div class="stat-label">XP</div>
+                        <div class="bar xp-bar">
+                            <div id="xp-fill" class="bar-fill"></div>
+                        </div>
+                        <span id="level-text">Lv.1</span>
+                    </div>
+
+                    <div class="timer">⏱️ <span id="timer">0:00</span></div>
+                    <div class="kill-count">💀 <span id="kills">0</span></div>
+                </div>
+            </div>
+
+            <div id="levelup-screen" class="overlay hidden">
+                <div class="levelup-panel">
+                    <h2>🎊 LEVEL UP! 🎊</h2>
+                    <p>Choose an upgrade:</p>
+                    <div id="upgrade-options"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="gameover-screen" class="screen">
+            <h1>💀 GAME OVER 💀</h1>
+            <div class="stats-panel">
+                <h3>Your Stats:</h3>
+                <p>⏱️ Survived: <span id="final-time">0:00</span></p>
+                <p>💀 Kills: <span id="final-kills">0</span></p>
+                <p>📈 Level: <span id="final-level">1</span></p>
+            </div>
+            <button id="restart-btn" class="btn-primary">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

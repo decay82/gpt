@@ -43,8 +43,174 @@ const game = {
     enemySpawnTimer: 0,
     enemySpawnInterval: CONFIG.enemy.spawnInterval,
     spriteSheet: null,
-    screenShake: null
+    screenShake: null,
+    background: null
 };
+
+// Apocalypse Background Class
+class ApocalypseBackground {
+    constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this.debris = [];
+        this.burningCars = [];
+        this.cracks = [];
+        this.generateBackground();
+    }
+
+    generateBackground() {
+        // Generate road cracks
+        for (let i = 0; i < 30; i++) {
+            this.cracks.push({
+                x: Math.random() * this.width,
+                y: Math.random() * this.height,
+                length: 20 + Math.random() * 60,
+                angle: Math.random() * Math.PI * 2,
+                width: 1 + Math.random() * 3
+            });
+        }
+
+        // Generate burning cars
+        for (let i = 0; i < 5; i++) {
+            this.burningCars.push({
+                x: Math.random() * this.width,
+                y: Math.random() * this.height,
+                type: Math.floor(Math.random() * 2), // Different car types
+                firePhase: Math.random() * Math.PI * 2
+            });
+        }
+
+        // Generate debris
+        for (let i = 0; i < 50; i++) {
+            this.debris.push({
+                x: Math.random() * this.width,
+                y: Math.random() * this.height,
+                size: 3 + Math.random() * 8,
+                type: Math.floor(Math.random() * 3)
+            });
+        }
+    }
+
+    draw(ctx, time) {
+        // Dark asphalt background
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // Add road texture
+        ctx.fillStyle = '#252525';
+        for (let y = 0; y < this.height; y += 20) {
+            for (let x = 0; x < this.width; x += 20) {
+                if (Math.random() > 0.7) {
+                    ctx.fillRect(x, y, 2, 2);
+                }
+            }
+        }
+
+        // Draw cracks
+        ctx.strokeStyle = '#0a0a0a';
+        this.cracks.forEach(crack => {
+            ctx.lineWidth = crack.width;
+            ctx.beginPath();
+            ctx.moveTo(crack.x, crack.y);
+            ctx.lineTo(
+                crack.x + Math.cos(crack.angle) * crack.length,
+                crack.y + Math.sin(crack.angle) * crack.length
+            );
+            ctx.stroke();
+        });
+
+        // Draw debris
+        this.debris.forEach(d => {
+            if (d.type === 0) {
+                // Rock
+                ctx.fillStyle = '#3a3a3a';
+                ctx.fillRect(d.x, d.y, d.size, d.size);
+                ctx.fillStyle = '#2a2a2a';
+                ctx.fillRect(d.x + 1, d.y + 1, d.size - 2, d.size - 2);
+            } else if (d.type === 1) {
+                // Metal piece
+                ctx.fillStyle = '#555';
+                ctx.fillRect(d.x, d.y, d.size, d.size * 0.5);
+            } else {
+                // Small rubble
+                ctx.fillStyle = '#444';
+                ctx.fillRect(d.x, d.y, d.size * 0.7, d.size * 0.7);
+            }
+        });
+
+        // Draw burning cars
+        this.burningCars.forEach(car => {
+            car.firePhase += 0.05;
+
+            // Car shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(car.x + 2, car.y + 32, 40, 8);
+
+            // Car body (burnt/destroyed)
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(car.x, car.y + 20, 40, 15); // Body
+            ctx.fillRect(car.x + 5, car.y + 10, 30, 15); // Roof
+
+            // Windows (broken/dark)
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(car.x + 8, car.y + 12, 10, 10);
+            ctx.fillRect(car.x + 22, car.y + 12, 10, 10);
+
+            // Burnt marks
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(car.x + 2, car.y + 22, 36, 3);
+            ctx.fillRect(car.x + 10, car.y + 15, 20, 3);
+
+            // Fire effect
+            const fireHeight = 15 + Math.sin(car.firePhase) * 5;
+            const fireColors = ['#ff4400', '#ff6600', '#ff8800', '#ffaa00'];
+
+            for (let i = 0; i < 3; i++) {
+                const flameX = car.x + 15 + Math.cos(car.firePhase + i) * 8;
+                const flameY = car.y + 8 - fireHeight + i * 3;
+                const flameSize = 6 + Math.sin(car.firePhase + i * 0.5) * 3;
+
+                ctx.fillStyle = fireColors[i % fireColors.length];
+                ctx.fillRect(flameX, flameY, flameSize, flameSize);
+            }
+
+            // Smoke particles
+            if (Math.random() > 0.7) {
+                game.particles.push(new SmokeParticle(
+                    car.x + 20 + (Math.random() - 0.5) * 20,
+                    car.y + 10
+                ));
+            }
+        });
+    }
+}
+
+// Smoke Particle Class
+class SmokeParticle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = -0.5 - Math.random() * 0.5;
+        this.size = 4 + Math.random() * 6;
+        this.life = 1;
+        this.maxLife = 2000 + Math.random() * 1000;
+    }
+
+    update(deltaTime) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= deltaTime / this.maxLife;
+        this.size += 0.1;
+        return this.life > 0;
+    }
+
+    draw(ctx) {
+        const alpha = this.life * 0.3;
+        ctx.fillStyle = `rgba(60, 60, 60, ${alpha})`;
+        ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+    }
+}
 
 // Player Class
 class Player {
@@ -650,9 +816,10 @@ function gameLoop(timestamp) {
     // Update screen shake
     game.screenShake.update(deltaTime);
 
-    // Clear canvas
-    game.ctx.fillStyle = '#1a1a2e';
-    game.ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+    // Draw background (before screen shake)
+    if (game.background) {
+        game.background.draw(game.ctx, game.time);
+    }
 
     // Apply screen shake
     game.ctx.save();
@@ -722,6 +889,7 @@ function showScreen(screenId) {
 // Start Game
 function startGame() {
     // Reset game state
+    game.background = new ApocalypseBackground(CONFIG.canvas.width, CONFIG.canvas.height);
     game.player = new Player(CONFIG.canvas.width / 2, CONFIG.canvas.height / 2);
     game.enemies = [];
     game.projectiles = [];

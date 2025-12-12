@@ -1,15 +1,18 @@
-# 🎮 Survival Arena
+# ⚔️ Survival Arena: Hades Edition
 
-A fast-paced survivors-like game built with HTML5 Canvas. Fight waves of enemies, level up, and survive as long as you can!
+A fast-paced Hades-style action game built with HTML5 Canvas. Battle through chambers of enemies, dash through danger, and earn divine blessings from the Greek gods!
 
 ## ✨ Features
 
-### Gameplay
+### 🏛️ Hades-Style Gameplay
+- **Chamber-based combat** - Clear rooms of enemies to progress
+- **Dash/Dodge mechanic** - Quick dash with invulnerability frames (Space/Shift)
+- **Room progression** - Face increasingly difficult chambers
+- **Divine blessings** - Gain power from Greek gods between chambers
 - **Auto-attacking weapons** - Multiple weapon types that fire automatically
-- **Progressive difficulty** - Enemies get stronger over time
 - **Level-up system** - Choose powerful upgrades as you gain experience
 - **Multiple enemy types** - Normal, Fast, and Tank enemies with unique behaviors
-- **Smooth controls** - WASD/Arrow keys for desktop, touch controls for mobile
+- **Smooth controls** - WASD/Arrow keys for movement, Space/Shift to dash
 
 ### Visual Effects
 - **Pixel art sprites** - Retro-style animated characters and effects
@@ -23,13 +26,13 @@ A fast-paced survivors-like game built with HTML5 Canvas. Fight waves of enemies
 - **Fireball** 🔥 - High damage, fast projectiles
 - **Lightning** ⚡ - Quick firing rate
 
-### Upgrades
-- ❤️ Max HP +20
-- ⚡ Speed +15%
-- ⚔️ Weapon Damage +20%
-- 🔥 Attack Speed +15%
-- 🎯 Weapon Range +20%
-- ✨ New Random Weapon
+### 🏛️ Divine Blessings (Upgrades)
+- 💚 **Demeter's Blessing** - Restore vitality (+20 Max HP)
+- ⚡ **Hermes' Swift Feet** - Gain swiftness (+15% Speed)
+- ⚔️ **Ares' Fury** - Empower your strikes (+20% Damage)
+- 🔥 **Apollo's Precision** - Quicken your attacks (+15% Attack Speed)
+- 🌊 **Poseidon's Reach** - Extend your range (+20% Range)
+- ⚡ **Zeus' Arsenal** - Receive a new weapon
 
 ## 🚀 Quick Start
 
@@ -47,10 +50,14 @@ php -S localhost:8000
 
 Then open `http://localhost:8000` in your browser!
 
-### Controls
-- **Desktop**: Arrow Keys or WASD to move
-- **Mobile**: Touch screen to move character
+### ⚔️ Controls
+- **Movement**: Arrow Keys or WASD
+- **Dash/Dodge**: Space or Shift (while moving)
+  - Quick dash in movement direction
+  - Invulnerable during dash
+  - 0.8 second cooldown
 - **Attacks**: Automatic!
+- **Mobile**: Touch screen to move character
 
 ## 📱 Mobile/Android Build
 

@@ -34,13 +34,16 @@ const game = {
     enemies: [],
     projectiles: [],
     particles: [],
+    effects: [], // Muzzle flashes, etc
     keys: {},
     score: 0,
     kills: 0,
     time: 0,
     lastTime: 0,
     enemySpawnTimer: 0,
-    enemySpawnInterval: CONFIG.enemy.spawnInterval
+    enemySpawnInterval: CONFIG.enemy.spawnInterval,
+    spriteSheet: null,
+    screenShake: null
 };
 
 // Player Class
@@ -90,34 +93,23 @@ class Player {
         // Shadow
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.beginPath();
-        ctx.ellipse(this.x, this.y + this.size / 2, this.size * 0.8, this.size * 0.3, 0, 0, Math.PI * 2);
+        ctx.ellipse(this.x, this.y + 20, 20, 8, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Player body
-        ctx.fillStyle = '#4ecdc4';
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // Player face
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(this.x - 6, this.y - 4, 3, 0, Math.PI * 2);
-        ctx.arc(this.x + 6, this.y - 4, 3, 0, Math.PI * 2);
-        ctx.fill();
+        // Player sprite
+        game.spriteSheet.drawSprite(ctx, 'player', this.x, this.y, 0.8, game.time);
 
         // HP bar
-        const barWidth = this.size * 2;
-        const barHeight = 4;
-        const barY = this.y - this.size - 10;
+        const barWidth = 40;
+        const barHeight = 5;
+        const barY = this.y - 30;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(this.x - barWidth / 2, barY, barWidth, barHeight);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(this.x - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
 
-        ctx.fillStyle = this.hp > this.maxHp * 0.3 ? '#4ecdc4' : '#ff6b6b';
+        const hpColor = this.hp > this.maxHp * 0.5 ? '#4ecdc4' :
+                       this.hp > this.maxHp * 0.25 ? '#ffd93d' : '#ff6b6b';
+        ctx.fillStyle = hpColor;
         ctx.fillRect(this.x - barWidth / 2, barY, barWidth * (this.hp / this.maxHp), barHeight);
     }
 
@@ -215,26 +207,22 @@ class Enemy {
         // Shadow
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.beginPath();
-        ctx.ellipse(this.x, this.y + this.size / 2, this.size * 0.8, this.size * 0.3, 0, 0, Math.PI * 2);
+        const shadowScale = this.type === 'tank' ? 1.2 : 1;
+        ctx.ellipse(this.x, this.y + 15, 15 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Body
-        ctx.fillStyle = this.color;
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        // Enemy sprite
+        const scale = this.type === 'tank' ? 1.2 : this.type === 'fast' ? 0.8 : 1;
+        game.spriteSheet.drawSprite(ctx, 'enemy_' + this.type, this.x, this.y, scale, game.time);
 
         // HP bar
         if (this.hp < this.maxHp) {
-            const barWidth = this.size * 2;
-            const barHeight = 3;
-            const barY = this.y - this.size - 8;
+            const barWidth = 30;
+            const barHeight = 4;
+            const barY = this.y - 25;
 
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(this.x - barWidth / 2, barY, barWidth, barHeight);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(this.x - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
 
             ctx.fillStyle = '#ff6b6b';
             ctx.fillRect(this.x - barWidth / 2, barY, barWidth * (this.hp / this.maxHp), barHeight);
@@ -322,6 +310,9 @@ class Weapon {
                 this.color,
                 this.type
             ));
+
+            // Muzzle flash effect
+            game.effects.push(new MuzzleFlash(this.owner.x, this.owner.y, angle, this.color));
         }
     }
 
@@ -381,75 +372,120 @@ class Projectile {
     }
 
     draw(ctx) {
-        ctx.fillStyle = this.color;
+        // Use sprite
+        game.spriteSheet.drawSprite(
+            ctx,
+            'projectile_' + this.type,
+            this.x,
+            this.y,
+            0.8,
+            Date.now() - this.createdAt,
+            this.angle
+        );
+
+        // Add glow effect
         ctx.shadowBlur = 15;
         ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = 0.3;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.size * 1.5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
     }
 }
 
-// Particle Class
+// Particle Class (now using sprites)
 class Particle {
-    constructor(x, y, vx, vy, color, size, lifetime) {
+    constructor(x, y, vx, vy, type, size, lifetime) {
         this.x = x;
         this.y = y;
         this.vx = vx;
         this.vy = vy;
-        this.color = color;
+        this.type = type || 'spark';
         this.size = size;
         this.lifetime = lifetime;
         this.age = 0;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.2;
     }
 
     update(deltaTime) {
         this.x += this.vx;
         this.y += this.vy;
         this.age += deltaTime;
-        this.vy += 0.1; // Gravity
+        this.vy += 0.15; // Gravity
+        this.vx *= 0.98; // Air resistance
+        this.rotation += this.rotationSpeed;
         return this.age < this.lifetime;
     }
 
     draw(ctx) {
         const alpha = 1 - (this.age / this.lifetime);
-        ctx.fillStyle = this.color;
         ctx.globalAlpha = alpha;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
+
+        game.spriteSheet.drawSprite(
+            ctx,
+            'particle_' + this.type,
+            this.x,
+            this.y,
+            this.size,
+            0,
+            this.rotation
+        );
+
         ctx.globalAlpha = 1;
     }
 }
 
 // Visual Effects
 function createExplosion(x, y, color) {
-    for (let i = 0; i < 15; i++) {
-        const angle = (Math.PI * 2 * i) / 15;
-        const speed = 2 + Math.random() * 3;
+    // Add screen shake
+    game.screenShake.shake(5, 200);
+
+    // Create explosion particles
+    for (let i = 0; i < 20; i++) {
+        const angle = (Math.PI * 2 * i) / 20;
+        const speed = 3 + Math.random() * 4;
         game.particles.push(new Particle(
             x, y,
             Math.cos(angle) * speed,
             Math.sin(angle) * speed,
-            color,
-            3 + Math.random() * 3,
-            500
+            'explosion',
+            0.8 + Math.random() * 0.5,
+            400 + Math.random() * 200
+        ));
+    }
+
+    // Add sparks
+    for (let i = 0; i < 10; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 5;
+        game.particles.push(new Particle(
+            x, y,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            'spark',
+            0.6 + Math.random() * 0.4,
+            300 + Math.random() * 200
         ));
     }
 }
 
 function createHitEffect(x, y, color) {
-    for (let i = 0; i < 5; i++) {
+    const type = color === '#ff6b6b' ? 'blood' : 'spark';
+
+    for (let i = 0; i < 8; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = 1 + Math.random() * 2;
+        const speed = 2 + Math.random() * 3;
         game.particles.push(new Particle(
             x, y,
             Math.cos(angle) * speed,
             Math.sin(angle) * speed,
-            color,
-            2 + Math.random() * 2,
-            300
+            type,
+            0.5 + Math.random() * 0.5,
+            250 + Math.random() * 150
         ));
     }
 }
@@ -611,9 +647,17 @@ function gameLoop(timestamp) {
     game.lastTime = timestamp;
     game.time += deltaTime;
 
+    // Update screen shake
+    game.screenShake.update(deltaTime);
+
     // Clear canvas
     game.ctx.fillStyle = '#1a1a2e';
     game.ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+
+    // Apply screen shake
+    game.ctx.save();
+    const shake = game.screenShake.getOffset();
+    game.ctx.translate(shake.x, shake.y);
 
     // Update
     game.player.update(deltaTime);
@@ -624,6 +668,8 @@ function gameLoop(timestamp) {
 
     game.particles = game.particles.filter(p => p.update(deltaTime));
 
+    game.effects = game.effects.filter(e => e.update(deltaTime));
+
     // Spawn enemies
     game.enemySpawnTimer += deltaTime;
     if (game.enemySpawnTimer > game.enemySpawnInterval) {
@@ -633,11 +679,15 @@ function gameLoop(timestamp) {
         game.enemySpawnInterval = Math.max(game.enemySpawnInterval, 500);
     }
 
-    // Draw
+    // Draw (back to front)
     game.particles.forEach(p => p.draw(game.ctx));
+    game.effects.forEach(e => e.draw(game.ctx));
     game.enemies.forEach(enemy => enemy.draw(game.ctx));
     game.projectiles.forEach(p => p.draw(game.ctx));
     game.player.draw(game.ctx);
+
+    // Restore context
+    game.ctx.restore();
 
     // Update UI
     if (Math.floor(timestamp / 100) !== Math.floor(game.lastTime / 100)) {
@@ -676,6 +726,7 @@ function startGame() {
     game.enemies = [];
     game.projectiles = [];
     game.particles = [];
+    game.effects = [];
     game.kills = 0;
     game.time = 0;
     game.lastTime = performance.now();
@@ -692,6 +743,12 @@ function startGame() {
 window.addEventListener('DOMContentLoaded', () => {
     game.canvas = document.getElementById('gameCanvas');
     game.ctx = game.canvas.getContext('2d');
+
+    // Initialize sprite system
+    console.log('🎨 Initializing sprite system...');
+    game.spriteSheet = new SpriteSheet();
+    game.spriteSheet.initAll();
+    game.screenShake = new ScreenShake();
 
     // Set canvas size
     const setCanvasSize = () => {

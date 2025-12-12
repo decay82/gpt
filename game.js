@@ -809,7 +809,16 @@ function startRoom(roomNumber) {
 }
 
 function checkRoomComplete() {
+    // Debug logging
+    console.log('Checking room complete:', {
+        enemiesLength: game.enemies.length,
+        enemiesSpawned: game.enemiesSpawnedInRoom,
+        enemiesInRoom: game.enemiesInRoom,
+        roomCleared: game.roomCleared
+    });
+
     if (game.enemies.length === 0 && game.enemiesSpawnedInRoom >= game.enemiesInRoom && !game.roomCleared) {
+        console.log('Room cleared! Showing screen...');
         game.roomCleared = true;
         showRoomClearScreen();
     }
@@ -1090,6 +1099,7 @@ function showScreen(screenId) {
 }
 
 function showRoomClearScreen() {
+    console.log('showRoomClearScreen called!');
     game.state = 'roomclear';
 
     // Show room clear overlay

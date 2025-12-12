@@ -977,29 +977,34 @@ function selectUpgrade(upgrade) {
 // UI Updates
 function updateUI() {
     const player = game.player;
+    if (!player) return;
 
     // HP
     const hpPercent = (player.hp / player.maxHp) * 100;
-    document.getElementById('hp-fill').style.width = hpPercent + '%';
-    document.getElementById('hp-text').textContent = `${Math.ceil(player.hp)}/${player.maxHp}`;
+    const hpFill = document.getElementById('hp-fill');
+    const hpText = document.getElementById('hp-text');
+    if (hpFill) hpFill.style.width = hpPercent + '%';
+    if (hpText) hpText.textContent = `${Math.ceil(player.hp)}/${player.maxHp}`;
 
     // XP
     const xpPercent = (player.xp / player.xpToLevel) * 100;
-    document.getElementById('xp-fill').style.width = xpPercent + '%';
-    document.getElementById('level-text').textContent = `Lv.${player.level}`;
+    const xpFill = document.getElementById('xp-fill');
+    const levelText = document.getElementById('level-text');
+    if (xpFill) xpFill.style.width = xpPercent + '%';
+    if (levelText) levelText.textContent = `Lv.${player.level}`;
 
-    // Timer
+    // Timer with room number (Hades-style)
     const minutes = Math.floor(game.time / 60000);
     const seconds = Math.floor((game.time % 60000) / 1000);
-    document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const timerElement = document.getElementById('timer');
+    if (timerElement) {
+        timerElement.textContent = `⚔️ Chamber ${game.currentRoom} | ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
 
     // Kills
-    document.getElementById('kills').textContent = game.kills;
-
-    // Room number (Hades-style)
-    const timerElement = document.getElementById('timer');
-    if (timerElement && timerElement.parentElement) {
-        timerElement.parentElement.innerHTML = `⚔️ Chamber ${game.currentRoom} | ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const killsElement = document.getElementById('kills');
+    if (killsElement) {
+        killsElement.textContent = game.kills;
     }
 }
 

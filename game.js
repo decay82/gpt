@@ -212,6 +212,30 @@ class SmokeParticle {
     }
 }
 
+// Dash Trail Particle (Hades-style)
+class DashTrailParticle {
+    constructor(x, y) {
+        this.x = x + (Math.random() - 0.5) * 20;
+        this.y = y + (Math.random() - 0.5) * 20;
+        this.size = 8 + Math.random() * 4;
+        this.life = 1;
+        this.maxLife = 300;
+        this.color = Math.random() > 0.5 ? '#4ecdc4' : '#44a6ff';
+    }
+
+    update(deltaTime) {
+        this.life -= deltaTime / this.maxLife;
+        this.size -= 0.2;
+        return this.life > 0 && this.size > 0;
+    }
+
+    draw(ctx) {
+        const alpha = this.life * 0.6;
+        ctx.fillStyle = this.color.replace(')', `, ${alpha})`).replace('#', 'rgba(').replace(/(..)(..)(..)/, '$1, 0x$2, 0x$3)');
+        ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+    }
+}
+
 // Player Class
 class Player {
     constructor(x, y) {
@@ -226,9 +250,36 @@ class Player {
         this.xpToLevel = 100;
         this.weapons = [new Weapon('orb', this)];
         this.pickupRange = 80;
+
+        // Dash mechanics (Hades-style)
+        this.isDashing = false;
+        this.dashCooldown = 0;
+        this.dashCooldownMax = 800; // 0.8 seconds
+        this.dashDuration = 150; // 0.15 seconds
+        this.dashSpeed = 15;
+        this.dashDirection = { x: 0, y: 0 };
+        this.isInvulnerable = false;
     }
 
     update(deltaTime) {
+        // Update dash cooldown
+        if (this.dashCooldown > 0) {
+            this.dashCooldown -= deltaTime;
+        }
+
+        // Handle dash
+        if (this.isDashing) {
+            this.x += this.dashDirection.x * this.dashSpeed;
+            this.y += this.dashDirection.y * this.dashSpeed;
+
+            // Dash trail effect
+            if (Math.random() > 0.5) {
+                game.particles.push(new DashTrailParticle(this.x, this.y));
+            }
+
+            return; // Skip normal movement during dash
+        }
+
         // Movement
         let dx = 0;
         let dy = 0;
@@ -237,6 +288,13 @@ class Player {
         if (game.keys['ArrowRight'] || game.keys['d'] || game.keys['D']) dx += 1;
         if (game.keys['ArrowUp'] || game.keys['w'] || game.keys['W']) dy -= 1;
         if (game.keys['ArrowDown'] || game.keys['s'] || game.keys['S']) dy += 1;
+
+        // Dash trigger (Space or Shift)
+        if ((game.keys[' '] || game.keys['Shift']) && this.dashCooldown <= 0 && (dx !== 0 || dy !== 0)) {
+            this.startDash(dx, dy);
+            game.keys[' '] = false; // Prevent holding
+            game.keys['Shift'] = false;
+        }
 
         // Normalize diagonal movement
         if (dx !== 0 && dy !== 0) {
@@ -255,6 +313,28 @@ class Player {
         this.weapons.forEach(weapon => weapon.update(deltaTime));
     }
 
+    startDash(dx, dy) {
+        this.isDashing = true;
+        this.isInvulnerable = true;
+        this.dashCooldown = this.dashCooldownMax;
+
+        // Normalize dash direction
+        const length = Math.sqrt(dx * dx + dy * dy);
+        this.dashDirection = {
+            x: dx / length,
+            y: dy / length
+        };
+
+        // Dash visual effect
+        createDashEffect(this.x, this.y);
+
+        // End dash after duration
+        setTimeout(() => {
+            this.isDashing = false;
+            this.isInvulnerable = false;
+        }, this.dashDuration);
+    }
+
     draw(ctx) {
         // Shadow
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -262,8 +342,23 @@ class Player {
         ctx.ellipse(this.x, this.y + 20, 20, 8, 0, 0, Math.PI * 2);
         ctx.fill();
 
+        // Dash glow effect
+        if (this.isDashing) {
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = '#4ecdc4';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size * 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
         // Player sprite
+        const alpha = this.isDashing ? 0.7 : 1;
+        ctx.save();
+        ctx.globalAlpha = alpha;
         game.spriteSheet.drawSprite(ctx, 'player', this.x, this.y, 0.8, game.time);
+        ctx.restore();
 
         // HP bar
         const barWidth = 40;
@@ -277,9 +372,22 @@ class Player {
                        this.hp > this.maxHp * 0.25 ? '#ffd93d' : '#ff6b6b';
         ctx.fillStyle = hpColor;
         ctx.fillRect(this.x - barWidth / 2, barY, barWidth * (this.hp / this.maxHp), barHeight);
+
+        // Dash cooldown indicator
+        if (this.dashCooldown > 0) {
+            const cooldownBarY = this.y - 38;
+            const cooldownPercent = 1 - (this.dashCooldown / this.dashCooldownMax);
+            ctx.fillStyle = 'rgba(68, 166, 255, 0.3)';
+            ctx.fillRect(this.x - barWidth / 2, cooldownBarY, barWidth * cooldownPercent, 2);
+        }
     }
 
     takeDamage(damage) {
+        // Invulnerable during dash (Hades-style)
+        if (this.isInvulnerable) {
+            return;
+        }
+
         this.hp -= damage;
         createHitEffect(this.x, this.y, '#ff6b6b');
 
@@ -653,6 +761,28 @@ function createHitEffect(x, y, color) {
             0.5 + Math.random() * 0.5,
             250 + Math.random() * 150
         ));
+    }
+}
+
+// Dash Effect (Hades-style)
+function createDashEffect(x, y) {
+    // Create radial burst of particles
+    for (let i = 0; i < 12; i++) {
+        const angle = (Math.PI * 2 / 12) * i;
+        const speed = 3 + Math.random() * 2;
+        game.particles.push(new Particle(
+            x, y,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            'spark',
+            0.8,
+            200 + Math.random() * 100
+        ));
+    }
+
+    // Screen shake
+    if (game.screenShake) {
+        game.screenShake.shake(3);
     }
 }
 

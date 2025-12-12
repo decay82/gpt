@@ -29,7 +29,7 @@ const CONFIG = {
 const game = {
     canvas: null,
     ctx: null,
-    state: 'menu', // menu, playing, levelup, gameover
+    state: 'menu', // menu, playing, levelup, gameover, roomclear
     player: null,
     enemies: [],
     projectiles: [],
@@ -44,7 +44,12 @@ const game = {
     enemySpawnInterval: CONFIG.enemy.spawnInterval,
     spriteSheet: null,
     screenShake: null,
-    background: null
+    background: null,
+    // Room-based system (Hades-style)
+    currentRoom: 1,
+    enemiesInRoom: 0,
+    enemiesSpawnedInRoom: 0,
+    roomCleared: false
 };
 
 // Apocalypse Background Class
@@ -786,6 +791,53 @@ function createDashEffect(x, y) {
     }
 }
 
+// Room System (Hades-style)
+function startRoom(roomNumber) {
+    game.currentRoom = roomNumber;
+    game.roomCleared = false;
+    game.enemiesSpawnedInRoom = 0;
+
+    // Calculate enemies for this room
+    game.enemiesInRoom = 5 + Math.floor(roomNumber * 2);
+
+    // Spawn initial wave
+    const initialSpawn = Math.min(3, game.enemiesInRoom);
+    for (let i = 0; i < initialSpawn; i++) {
+        spawnEnemy();
+        game.enemiesSpawnedInRoom++;
+    }
+}
+
+function checkRoomComplete() {
+    if (game.enemies.length === 0 && game.enemiesSpawnedInRoom >= game.enemiesInRoom && !game.roomCleared) {
+        game.roomCleared = true;
+        showRoomClearScreen();
+    }
+}
+
+function nextRoom() {
+    // Heal player a bit
+    game.player.hp = Math.min(game.player.maxHp, game.player.hp + 20);
+
+    // Start next room
+    startRoom(game.currentRoom + 1);
+    game.state = 'playing';
+
+    // Create celebration effect
+    for (let i = 0; i < 30; i++) {
+        const angle = (Math.PI * 2 / 30) * i;
+        game.particles.push(new Particle(
+            game.canvas.width / 2,
+            game.canvas.height / 2,
+            Math.cos(angle) * 5,
+            Math.sin(angle) * 5,
+            'spark',
+            1,
+            500
+        ));
+    }
+}
+
 // Enemy Spawning
 function spawnEnemy() {
     const side = Math.floor(Math.random() * 4);
@@ -810,21 +862,25 @@ function spawnEnemy() {
             break;
     }
 
-    // Determine enemy type
+    // Determine enemy type (more variety in later rooms)
     let type = 'normal';
     const rand = Math.random();
-    if (rand < 0.1) type = 'tank';
-    else if (rand < 0.3) type = 'fast';
+    const tankChance = 0.1 + (game.currentRoom * 0.02);
+    const fastChance = 0.3 + (game.currentRoom * 0.02);
+
+    if (rand < tankChance) type = 'tank';
+    else if (rand < fastChance) type = 'fast';
 
     game.enemies.push(new Enemy(x, y, type));
 }
 
 // Upgrade System
+// Greek Mythology Upgrades (Hades-style)
 const UPGRADES = [
     {
         id: 'hp',
-        name: '❤️ Max HP +20',
-        description: 'Increase maximum health and heal',
+        name: '💚 Demeter\'s Blessing',
+        description: 'The goddess of harvest restores your vitality (+20 Max HP)',
         apply: (player) => {
             player.maxHp += 20;
             player.hp = Math.min(player.hp + 20, player.maxHp);
@@ -832,40 +888,40 @@ const UPGRADES = [
     },
     {
         id: 'speed',
-        name: '⚡ Speed +15%',
-        description: 'Move faster',
+        name: '⚡ Hermes\' Swift Feet',
+        description: 'The messenger god grants you his swiftness (+15% Speed)',
         apply: (player) => {
             player.speed *= 1.15;
         }
     },
     {
         id: 'weapon_damage',
-        name: '⚔️ Weapon Damage +20%',
-        description: 'All weapons deal more damage',
+        name: '⚔️ Ares\' Fury',
+        description: 'The god of war empowers your strikes (+20% Damage)',
         apply: (player) => {
             player.weapons.forEach(w => w.damage *= 1.2);
         }
     },
     {
         id: 'weapon_speed',
-        name: '🔥 Attack Speed +15%',
-        description: 'Weapons fire faster',
+        name: '🔥 Apollo\'s Precision',
+        description: 'The god of archery quickens your attacks (+15% Attack Speed)',
         apply: (player) => {
             player.weapons.forEach(w => w.cooldown *= 0.85);
         }
     },
     {
         id: 'weapon_range',
-        name: '🎯 Weapon Range +20%',
-        description: 'Attack from further away',
+        name: '🌊 Poseidon\'s Reach',
+        description: 'The sea god extends your range (+20% Range)',
         apply: (player) => {
             player.weapons.forEach(w => w.range *= 1.2);
         }
     },
     {
         id: 'new_weapon',
-        name: '✨ New Weapon',
-        description: 'Add a random weapon',
+        name: '⚡ Zeus\' Arsenal',
+        description: 'The king of gods bestows a new weapon upon you',
         apply: (player) => {
             const types = ['orb', 'fireball', 'lightning'];
             const type = types[Math.floor(Math.random() * types.length)];
@@ -930,6 +986,12 @@ function updateUI() {
 
     // Kills
     document.getElementById('kills').textContent = game.kills;
+
+    // Room number (Hades-style)
+    const timerElement = document.getElementById('timer');
+    if (timerElement && timerElement.parentElement) {
+        timerElement.parentElement.innerHTML = `⚔️ Chamber ${game.currentRoom} | ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
 }
 
 // Game Loop
@@ -967,14 +1029,18 @@ function gameLoop(timestamp) {
 
     game.effects = game.effects.filter(e => e.update(deltaTime));
 
-    // Spawn enemies
-    game.enemySpawnTimer += deltaTime;
-    if (game.enemySpawnTimer > game.enemySpawnInterval) {
-        spawnEnemy();
-        game.enemySpawnTimer = 0;
-        game.enemySpawnInterval *= CONFIG.enemy.spawnAcceleration;
-        game.enemySpawnInterval = Math.max(game.enemySpawnInterval, 500);
+    // Room-based enemy spawning (Hades-style)
+    if (game.enemiesSpawnedInRoom < game.enemiesInRoom) {
+        game.enemySpawnTimer += deltaTime;
+        if (game.enemySpawnTimer > 2000) { // Spawn every 2 seconds
+            spawnEnemy();
+            game.enemiesSpawnedInRoom++;
+            game.enemySpawnTimer = 0;
+        }
     }
+
+    // Check if room is complete
+    checkRoomComplete();
 
     // Draw (back to front)
     game.particles.forEach(p => p.draw(game.ctx));
@@ -1016,6 +1082,56 @@ function showScreen(screenId) {
     document.getElementById(screenId).classList.add('active');
 }
 
+function showRoomClearScreen() {
+    game.state = 'roomclear';
+
+    // Show room clear overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'room-clear-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        animation: fadeIn 0.3s;
+    `;
+
+    overlay.innerHTML = `
+        <div style="text-align: center; color: #4ecdc4;">
+            <h1 style="font-size: 4em; margin: 0; text-shadow: 0 0 20px #4ecdc4;">CHAMBER CLEARED</h1>
+            <p style="font-size: 2em; margin: 20px 0;">Chamber ${game.currentRoom} Complete</p>
+            <p style="font-size: 1.5em; color: #ffd93d;">+20 HP Restored</p>
+            <button id="next-room-btn" style="
+                font-size: 1.5em;
+                padding: 15px 40px;
+                margin-top: 30px;
+                background: linear-gradient(45deg, #4ecdc4, #44a6ff);
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-weight: bold;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+                box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+            ">Enter Next Chamber</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    document.getElementById('next-room-btn').addEventListener('click', () => {
+        document.body.removeChild(overlay);
+        nextRoom();
+    });
+}
+
 // Start Game
 function startGame() {
     // Reset game state
@@ -1029,8 +1145,10 @@ function startGame() {
     game.time = 0;
     game.lastTime = performance.now();
     game.enemySpawnTimer = 0;
-    game.enemySpawnInterval = CONFIG.enemy.spawnInterval;
     game.state = 'playing';
+
+    // Start first room (Hades-style)
+    startRoom(1);
 
     showScreen('game-screen');
     updateUI();

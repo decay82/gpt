@@ -13,9 +13,9 @@ const CONFIG = {
     enemy: {
         baseSize: 15,
         baseSpeed: 1.5,
-        baseHp: 20,
+        baseHp: 15,
         baseDamage: 10,
-        spawnInterval: 2000,
+        spawnInterval: 4000,
         spawnAcceleration: 0.98
     },
     weapon: {

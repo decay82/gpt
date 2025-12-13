@@ -187,8 +187,8 @@ function createArena() {
 // Player Class
 class Player {
     constructor() {
-        // Player model (simple character)
-        const bodyGeometry = new THREE.CapsuleGeometry(0.5, 1.5, 8, 16);
+        // Player model (using cylinder instead of capsule for compatibility)
+        const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16);
         const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x4ecdc4 });
         this.mesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
         this.mesh.castShadow = true;
@@ -200,6 +200,13 @@ class Player {
         this.head = new THREE.Mesh(headGeometry, headMaterial);
         this.head.position.y = 1.2;
         this.mesh.add(this.head);
+
+        // Bottom sphere for rounded feet
+        const feetGeometry = new THREE.SphereGeometry(0.5, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const feetMaterial = new THREE.MeshStandardMaterial({ color: 0x4ecdc4 });
+        this.feet = new THREE.Mesh(feetGeometry, feetMaterial);
+        this.feet.position.y = -0.75;
+        this.mesh.add(this.feet);
 
         game.scene.add(this.mesh);
 

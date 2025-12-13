@@ -22,6 +22,12 @@ const CONFIG = {
         damage: 10,
         size: 1
     },
+    weapon: {
+        damage: 15,
+        cooldown: 300,
+        projectileSpeed: 0.8,
+        projectileSize: 0.3
+    },
     room: {
         size: 30,
         wallHeight: 5
@@ -94,6 +100,7 @@ function init() {
     document.addEventListener('keydown', (e) => game.keys[e.key] = true);
     document.addEventListener('keyup', (e) => game.keys[e.key] = false);
     document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('click', onMouseClick);
 
     // Pointer lock
     canvas.addEventListener('click', () => {
@@ -215,14 +222,36 @@ class Player {
         this.rotation = 0;
         this.isDashing = false;
         this.dashCooldown = 0;
+        this.shootCooldown = 0;
         this.dashDirection = new THREE.Vector3();
         this.velocity = new THREE.Vector3();
     }
 
+    shoot() {
+        if (this.shootCooldown > 0) return;
+
+        this.shootCooldown = CONFIG.weapon.cooldown;
+
+        // Get shoot direction from camera
+        const direction = new THREE.Vector3();
+        game.camera.getWorldDirection(direction);
+        direction.normalize();
+
+        // Create projectile from player position
+        const projectile = new Projectile(
+            this.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)),
+            direction
+        );
+        game.projectiles.push(projectile);
+    }
+
     update(delta) {
-        // Update dash cooldown
+        // Update cooldowns
         if (this.dashCooldown > 0) {
             this.dashCooldown -= delta * 1000;
+        }
+        if (this.shootCooldown > 0) {
+            this.shootCooldown -= delta * 1000;
         }
 
         // Rotation (mouse)
@@ -350,6 +379,82 @@ class Enemy {
     }
 }
 
+// Projectile Class
+class Projectile {
+    constructor(position, direction) {
+        const geometry = new THREE.SphereGeometry(CONFIG.weapon.projectileSize, 8, 8);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0x44a6ff,
+            emissive: 0x44a6ff
+        });
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.copy(position);
+
+        // Add glow effect
+        const glowGeometry = new THREE.SphereGeometry(CONFIG.weapon.projectileSize * 1.5, 8, 8);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0x4ecdc4,
+            transparent: true,
+            opacity: 0.5
+        });
+        this.glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        this.mesh.add(this.glow);
+
+        game.scene.add(this.mesh);
+
+        this.direction = direction.clone();
+        this.speed = CONFIG.weapon.projectileSpeed;
+        this.damage = CONFIG.weapon.damage;
+        this.lifetime = 3000; // 3 seconds
+        this.createdAt = Date.now();
+    }
+
+    update(delta) {
+        // Move projectile
+        this.mesh.position.add(this.direction.clone().multiplyScalar(this.speed));
+
+        // Animate glow
+        this.glow.rotation.x += 0.1;
+        this.glow.rotation.y += 0.1;
+
+        // Check collision with enemies
+        for (let i = game.enemies.length - 1; i >= 0; i--) {
+            const enemy = game.enemies[i];
+            const distance = this.mesh.position.distanceTo(enemy.mesh.position);
+
+            if (distance < 1) {
+                // Hit enemy
+                if (enemy.takeDamage(this.damage)) {
+                    game.enemies.splice(i, 1);
+                }
+                this.destroy();
+                return false;
+            }
+        }
+
+        // Check lifetime
+        if (Date.now() - this.createdAt > this.lifetime) {
+            this.destroy();
+            return false;
+        }
+
+        // Check bounds
+        const halfSize = CONFIG.room.size / 2;
+        if (Math.abs(this.mesh.position.x) > halfSize ||
+            Math.abs(this.mesh.position.z) > halfSize ||
+            this.mesh.position.y < 0 || this.mesh.position.y > 10) {
+            this.destroy();
+            return false;
+        }
+
+        return true;
+    }
+
+    destroy() {
+        game.scene.remove(this.mesh);
+    }
+}
+
 // Create dash effect
 function createDashEffect(position) {
     const geometry = new THREE.RingGeometry(0.5, 2, 16);
@@ -470,6 +575,13 @@ function onMouseMove(event) {
     }
 }
 
+// Mouse click (shoot)
+function onMouseClick(event) {
+    if (game.pointerLocked && game.player && game.state === 'playing') {
+        game.player.shoot();
+    }
+}
+
 // Window resize
 function onWindowResize() {
     game.camera.aspect = window.innerWidth / window.innerHeight;
@@ -495,6 +607,9 @@ function animate() {
 
         // Update enemies
         game.enemies.forEach(enemy => enemy.update(delta));
+
+        // Update projectiles
+        game.projectiles = game.projectiles.filter(p => p.update(delta));
 
         // Spawn more enemies
         if (game.enemiesSpawned < game.enemiesInChamber) {

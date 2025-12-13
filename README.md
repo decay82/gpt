@@ -2,6 +2,8 @@
 
 A fast-paced Hades-style action game built with HTML5 Canvas. Battle through chambers of enemies, dash through danger, and earn divine blessings from the Greek gods!
 
+**🎮 [Play the 3D Version!](game-3d/) - Third-person 3D action with shoulder-view camera!**
+
 ## ✨ Features
 
 ### 🏛️ Hades-Style Gameplay
